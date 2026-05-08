@@ -1,0 +1,2536 @@
+{
+  "name": "Chatbot Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "=chatbot/:clientId",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "e1d49d54-0e17-40ab-b23b-7d9789396368",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -3216,
+        1968
+      ],
+      "webhookId": "9259d8e0-8ba1-4e96-a2f5-1b95bd0c2c28"
+    },
+    {
+      "parameters": {
+        "language": "javascript",
+        "jsCode": "// Validate Input\n\nconst req = $json;\n\n// clientId from URL param\nconst clientId = (req.params?.clientId || '').trim();\n\n// message from JSON body\nconst message = (req.body?.message || '').trim();\n\n// headers\nconst headers = req.headers || {};\n\n// sessionId: from body or header if provided\nconst sessionId =\n  (req.body?.sessionId || '').toString().trim() ||\n  (headers['x-session-id'] || headers['X-Session-Id'] || '').toString().trim();\n\nif (!clientId || !message) {\n  return [{\n    json: {\n      error: true,\n      message: 'Missing clientId or message.'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    clientId,\n    message,\n    headers,\n    sessionId,\n  }\n}];\n"
+      },
+      "id": "86eada38-5b90-4a15-8485-fe072dfbb36d",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -2992,
+        1968
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ { \"message\": $json.message} }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "770a1947-4f16-44c7-a3bc-7b2e476bf831",
+      "name": "Return to User",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2febcacf-1e73-43af-ac8c-16c9055e5906",
+      "name": "Return to User1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{$json.message || $json.answer}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fd3c2880-aad7-449e-9dd2-462d532edae5",
+      "name": "Return to User2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -2560,
+        2160
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6d3f1643-01b9-4e6d-a196-5e83ede288fe",
+      "name": "Return to User3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        320,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "54d6b81b-3c72-4231-9376-5460490b9439",
+      "name": "Return to User4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        528,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d72c8779-af0d-4859-9fbf-c31f744edf12",
+      "name": "Return to User5",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        752,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// FORMAT RESPONSE\n// Normalizes the LLM reply into a clean `message` string:\n// - Handles OpenAI/Groq-style responses\n// - Fixes double-escaped unicode like \\u0027\n// - Fixes \\n shown as literal backslash-n\n\nlet content = '';\n\n// 1) Common shapes: if you've already mapped or picked earlier\nif (typeof $json.message === 'string' && $json.message.trim() !== '') {\n  content = $json.message;\n} else if (typeof $json.answer === 'string' && $json.answer.trim() !== '') {\n  content = $json.answer;\n\n// 2) Direct OpenAI/Groq style\n} else if (Array.isArray($json.choices)\n  && $json.choices[0]\n  && $json.choices[0].message\n  && typeof $json.choices[0].message.content === 'string') {\n\n  content = $json.choices[0].message.content;\n\n// 3) Nested data.choices (if HTTP node wraps it)\n} else if ($json.data\n  && Array.isArray($json.data.choices)\n  && $json.data.choices[0]\n  && $json.data.choices[0].message\n  && typeof $json.data.choices[0].message.content === 'string') {\n\n  content = $json.data.choices[0].message.content;\n}\n\n// If nothing found, return debug once so you can see shape\nif (!content) {\n  return [{\n    json: {\n      message: 'No content found in LLM response.',\n      debug: $json\n    }\n  }];\n}\n\n// At this point `content` is whatever the model returned.\n// If you're seeing \\u0027 in the final API response, that means your string\n// literally contains the characters \"\\u0027\" (double-escaped).\n// So we target the BACKSLASHED form: \\\\u0027, not real \\u0027.\n\ncontent = content\n  // double-escaped unicode sequences → real characters\n  .replace(/\\\\u0027/g, \"'\")\n  .replace(/\\\\u2019/g, \"’\")\n  .replace(/\\\\u2018/g, \"‘\")\n  .replace(/\\\\u201c/g, \"“\")\n  .replace(/\\\\u201d/g, \"”\")\n  .replace(/\\\\u003c/g, \"<\")\n  .replace(/\\\\u003e/g, \">\")\n  .replace(/\\\\u0026/g, \"&\")\n  // double-escaped newlines / tabs → real\n  .replace(/\\\\n/g, \"\\n\")\n  .replace(/\\\\t/g, \"\\t\");\n\n// Safety: strip outer quotes if the whole thing is still quoted like a JSON string\nif (\n  content.length >= 2 &&\n  content.startsWith('\"') &&\n  content.endsWith('\"')\n) {\n  content = content.slice(1, -1);\n}\n\n// Final cleanup\ncontent = content.trim();\n\nreturn [{\n  json: {\n    message: content\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        32
+      ],
+      "id": "ab0ce808-6046-4ad1-bf7f-0d8338a7c254",
+      "name": "Format Response",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Input Error\n// Triggered when request is malformed (missing clientId/message, bad JSON, etc.)\n\nreturn [{\n  json: {\n    error: true,\n    code: 'VALIDATION_FAILED',\n    message: 'There was an error validating your input. Please contact the website owner',\n    origin: 'Validate Input',\n    debug: $json\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2768,
+        2064
+      ],
+      "id": "b6a7f856-88ab-4256-844d-45090f679594",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sheets Config Error\n// Triggered when we can't read the client config row\n\n// Try to grab clientId/message from Validate Input if available\nconst base = $node['Validate Input']?.json || {};\n\nreturn [{\n  error: true,\n  code: 'SHEETS_LOOKUP_FAILED',\n  message: 'There was an error in retrieving client data. Please contact site owner.',\n  origin: 'Google Sheets Lookup',\n  clientId: base.clientId || null,\n  debug: $json\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        1056
+      ],
+      "id": "2156195c-b5d3-4754-a672-540dd2130649",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Prompt Error\n// Triggered when prompt construction fails (usually bad/missing config)\n\nconst base = $node['Validate Input']?.json || {};\n\nreturn [{\n  error: true,\n  code: 'BUILD_PROMPT_FAILED',\n  message: 'A problem occurred while building the prompt. Please contact site owner.',\n  origin: 'Build Prompt',\n  clientId: base.clientId || null,\n  debug: $json\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        864
+      ],
+      "id": "4986859a-be90-4a12-9a62-99e3c6f129cd",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "// LLM Error\n// Triggered when Groq/OpenAI/etc fails (401, 429, timeout, etc.)\n\nconst base = $node['Validate Input']?.json || {};\nconst details = $json || {};\n\nreturn [\n  {\n    json: {\n      error: true,\n      code: 'LLM_API_ERROR',\n      message: 'A problem occurred while calling the LLM. Please contact site owner.',\n      origin: 'Call LLM',\n      clientId: base.clientId || null,\n      debug: details\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        560
+      ],
+      "id": "44eba691-507a-41b5-8581-49a35776e3b0",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Error\n// Triggered when LLM response doesn't match expected shape\n\nconst base = $node['Validate Input']?.json || {};\n\nreturn [{\n  json: {\n    error: true,\n    code: 'LLM_RESPONSE_INVALID',\n    message: 'A problem occurred while formatting the answer. Please contact site owner.',\n    origin: 'Format Response',\n    clientId: base.clientId || null,\n    debug: $json\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        256
+      ],
+      "id": "744f30e3-4dd2-4b43-9db8-152f8bdba020",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f8b9158f-09df-4d89-9318-27214162f0dd",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "={{ $json.error !== true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -800,
+        768
+      ],
+      "id": "b2c48a18-07c2-41cf-b995-24b54150a1b1",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// This must always output an array of { json: { ... } }\n\nconst msg =\n  $json.message ||\n  $json.answer ||\n  'No message available.';\n\nreturn [{\n  json: {\n    message: msg\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        864
+      ],
+      "id": "b5dbad06-cffc-4f4c-9433-c2dc063f664e",
+      "name": "Code6"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6f7d4a30-fe5f-4c00-a649-a0d7bcdbce90",
+      "name": "Return to User6",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select Client Config\n// Input: all rows from the config sheet (each item.json is a row)\n// Also uses clientId from \"Validate Input\"\n\nconst validate = $node['Validate Input'].json;\nconst clientId = (validate.clientId || '').trim();\n\n// Always get ALL incoming items from Sheets\nconst rows = $input.all();\n\n// If Sheets returned nothing at all (real failure or empty sheet)\nif (!rows || rows.length === 0) {\n  return [{\n    json: {\n      error: true,\n      message: 'Config sheet is empty or not readable.',\n      source: 'Select Client Config'\n    }\n  }];\n}\n\n// If somehow no clientId, bail clearly\nif (!clientId) {\n  return [{\n    json: {\n      error: true,\n      message: 'Invalid request. Missing clientId.',\n      source: 'Select Client Config'\n    }\n  }];\n}\n\n// Try to find a matching row\nlet match = null;\n\nfor (const item of rows) {\n  const rowId = (item.json.clientId || '').trim();\n  if (rowId && rowId === clientId) {\n    match = item.json;\n    break;\n  }\n}\n\n// If no matching row -> return ONE error item\nif (!match) {\n  return [{\n    json: {\n      error: true,\n      message: 'There was an error in retrieving client data. Please contact site owner.',\n      source: 'Select Client Config'\n    }\n  }];\n}\n\n// If found -> return ONE clean item with that row's data\nreturn [{\n  json: match\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        768
+      ],
+      "id": "75b0e6f0-4c75-43e4-923e-0674f936b7be",
+      "name": "Get Client Info Error Guard"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json[\"body\"]}}",
+        "options": {
+          "timeout": 25000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        160
+      ],
+      "id": "134e59d9-6684-4706-9eb7-f41236340d41",
+      "name": "Call LLM",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PrGx9A4vu5KlAY6O",
+          "name": "Header Auth account 2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "53114119-143f-46e2-8365-7bf3c5806f2a",
+              "leftValue": "={{ $json.error}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1456,
+        1168
+      ],
+      "id": "d39f25bb-9e7a-41b5-a6f7-30099b214e2d",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sheets Config Error\n// Triggered when we can't read the client config row\n\n// Try to grab clientId/message from Validate Input if available\nconst base = $node['Validate Input']?.json || {};\n\nreturn [{\n  error: true,\n  code: 'SHEETS_LOOKUP_FAILED',\n  message: 'There was an error in retrieving client data. Please contact site owner.',\n  origin: 'Google Sheets Lookup',\n  clientId: base.clientId || null,\n  debug: $json\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1232,
+        1360
+      ],
+      "id": "378bcd68-b244-426f-b6ce-ab9030eedf13",
+      "name": "Code7"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6984d8eb-9e91-4fbb-baf7-f1082600157e",
+      "name": "Return to User7",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json[\"configSheetId\"] }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1285Gjuij5klCMnnazk5PH8EjpKBQDIiO13hcGx8Sk5I/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "clientId",
+              "lookupValue": "={{$json[\"clientId\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1232,
+        960
+      ],
+      "id": "f584dd8b-5368-4373-b472-c6f40d0431b5",
+      "name": "Get Client info",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -2336,
+        1456
+      ],
+      "id": "7249678f-892b-467b-8c52-5c1701239e9d",
+      "name": "Sheets master registry",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Select Client From Registry & validate token\n\nconst validate = $node['Validate Input'].json;\n\nconst clientId = (validate.clientId || '').trim();\nconst headers = validate.headers || {};\nconst providedToken = (headers['x-client-token'] || headers['X-Client-Token'] || '').trim();\n\n// All registry rows from previous node\nconst rows = $input.all();\n\nlet match = null;\nfor (const item of rows) {\n  const row = item.json;\n  const rowClientId = (row.clientId || '').trim();\n  if (rowClientId === clientId) {\n    match = row;\n    break;\n  }\n}\n\n// No such client\nif (!match) {\n  return [{\n    json: {\n      error: true,\n      message: 'Unregistered or misconfigured client.',\n      debug: { clientId, providedToken }\n    }\n  }];\n}\n\nconst expectedToken = (match.token || '').trim();\n\n// Token mismatch\nif (expectedToken && providedToken !== expectedToken) {\n  return [{\n    json: {\n      error: true,\n      message: 'Unauthorized. Invalid or missing client token.',\n      debug: { clientId, providedToken, expectedToken }\n    }\n  }];\n}\n\n// Success: ONLY this client's row moves on\nreturn [{\n  json: match\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        1456
+      ],
+      "id": "34286efa-c095-4081-9760-80d03d5176ab",
+      "name": "Select Client From Registry"
+    },
+    {
+      "parameters": {
+        "jsCode": "const clientId = ($node['Validate Input'].json.clientId || '').trim();\nconst rows = $input.all();\n\nlet match = null;\nfor (const item of rows) {\n  const row = item.json;\n  if ((row.clientId || '').trim() === clientId) {\n    match = row;\n    break;\n  }\n}\n\nif (!match) {\n  return [{\n    json: {\n      error: true,\n      message: 'Unregistered or misconfigured client.'\n    }\n  }];\n}\n\nreturn [{\n  json: match\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1680,
+        1168
+      ],
+      "id": "120c52f4-9d49-4d94-9ecf-4b2a70f122e9",
+      "name": "Verify Client Existence"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5486620d-6cc9-452c-b6fc-132a1229c345",
+              "leftValue": "={{ $json.error !== true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1888,
+        1456
+      ],
+      "id": "a8b35f54-b21c-42a3-9fc3-a4207804dbbb",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Authentication Error\n// Triggered when request does not have everything required for authentication (header, token, etc.)\n\nreturn [{\n  json: {\n    error: true,\n    code: 'AUTHENTICATION_FAILED',\n    message: 'There was an error authenticating your request. Please contact the website owner',\n    origin: 'Select Client From Registry',\n    debug: $json\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1680,
+        1456
+      ],
+      "id": "29cfb010-e565-491e-b2a2-250d06c97e06",
+      "name": "Code5"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1456,
+        1360
+      ],
+      "id": "7f91a5d6-434e-475c-ac61-20ac7697e4af",
+      "name": "Log Conversation8",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{$json.message || $json.answer}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f52f7a4a-d033-4328-b91a-7fa388997d20",
+      "name": "Return to User8",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -1456,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -2560,
+        1968
+      ],
+      "id": "7ca46ed9-88e4-4406-8b2c-1983bf2db231",
+      "name": "Log Conversation9",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "answer": "={{$json[\"message\"]}}",
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "error": "={{ $json.error }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1008,
+        1456
+      ],
+      "id": "e012648f-c1cd-4ab0-a308-dd34fc8f161b",
+      "name": "Log Conversation10",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -800,
+        1168
+      ],
+      "id": "65e1e072-d200-438e-a4ee-a59e955ffc9b",
+      "name": "Log Conversation11",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -352,
+        960
+      ],
+      "id": "e515d97e-453f-4db0-bad7-5fec5075b576",
+      "name": "Log Conversation12",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        320,
+        960
+      ],
+      "id": "b9b402c6-b27e-4a50-8594-eb9392dffc85",
+      "name": "Log Conversation13",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        528,
+        656
+      ],
+      "id": "f1506f77-e83b-4b2f-b629-2d9d39630b79",
+      "name": "Log Conversation14",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        752,
+        368
+      ],
+      "id": "8f9efd9b-be93-401a-88cc-8c1ccf588b24",
+      "name": "Log Conversation15",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}",
+            "sessionId": "={{ $node['Rate Limiter'].json.sessionId }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sessionId",
+              "displayName": "sessionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        576,
+        -224
+      ],
+      "id": "33391813-41f5-48de-b76e-f483e76554d4",
+      "name": "Log Conversation16",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "//--------------------------------------------------\n// Rate Limiter — per client + per session\n//--------------------------------------------------\n\nconst clientId = $json.clientId || 'unknown';\nlet sessionId = $json.sessionId;\n\n// Fallback if no sessionId provided (not ideal for prod, fine as backup)\nif (!sessionId) {\n  const ip =\n    $json.headers?.['x-forwarded-for'] ||\n    $json.headers?.['x-real-ip'] ||\n    'unknown';\n  sessionId = `${clientId}_${ip}`;\n}\n\nconst windowMs = 3000; // 3 seconds per (clientId, sessionId)\nconst now = Date.now();\n\nconst store = $getWorkflowStaticData('global');\nconst key = `rl_${clientId}_${sessionId}`;\nconst last = store[key] || 0;\nconst diff = now - last;\n\n// If this is a repeat inside the window → BLOCK\nif (diff < windowMs) {\n  return [{\n    json: {\n      message: 'Too many requests — please wait a few seconds before sending another message.',\n      rateLimit: true,\n      waitRemainingMs: windowMs - diff,\n      debug: {\n        key,\n        last,\n        now,\n        diff\n      }\n    }\n  }];\n}\n\n// Otherwise → update and continue\nstore[key] = now;\nreturn $input.all();\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2768,
+        1760
+      ],
+      "id": "8620dae1-a579-4cc9-b733-b00605f1dbe1",
+      "name": "Rate Limiter"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea183abb-74b0-45fe-9289-00305fa9c226",
+              "leftValue": "={{ $json.rateLimit }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2560,
+        1760
+      ],
+      "id": "7173b57f-3507-4160-b39f-7f5701ee6d6a",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rate Limit\n// Triggered when too many requests are made within 3 secs of each other\n\nreturn [{\n  json: {\n    error: true,\n    code: 'TOO_MANY_REQUESTS',\n    message: 'Too many requests — please wait a few seconds before sending another message.',\n    origin: 'Rate Limiter',\n    debug: $json\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2336,
+        1856
+      ],
+      "id": "809effce-ce1c-4bb6-a078-158a6cd754a7",
+      "name": "Code8"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -2112,
+        1664
+      ],
+      "id": "28e0475a-4424-4c93-a38c-ecb8bd172f0d",
+      "name": "Log Conversation",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{$json.message || $json.answer}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "efd7a2c0-d6aa-4eab-8afe-0c7761785684",
+      "name": "Return to User9",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        1856
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "//--------------------------------------------------\n// Guardrail Code Node\n// - Reads the user message from Validate Input or $json\n// - Detects profanity, sexual content, self harm\n// - Returns:\n//    blocked: true|false\n//    category: 'self-harm' | 'content' | null\n//    message: final text that should go back to the user (if blocked)\n//    sanitizedMessage: original or masked version for logs\n//--------------------------------------------------\n\nconst validate = $node['Validate Input']?.json || {};\nconst rawInput =\n  (validate.message || $json.message || '').toString();\n\nconst msgLower = rawInput.toLowerCase();\n\n// Helper: whole word / phrase match\nconst containsAny = (text, list) => {\n  return list.some(pattern => {\n    if (pattern instanceof RegExp) {\n      return pattern.test(text);\n    }\n    const escaped = pattern.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n    const re = new RegExp(`\\\\b${escaped}\\\\b`, \"i\");\n    return re.test(text);\n  });\n};\n\n// Optional: mask words in sanitizedMessage for logs\nconst maskWords = (text, list) => {\n  let result = text;\n  for (const word of list) {\n    if (typeof word !== 'string' || !word.trim()) continue;\n    const escaped = word.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n    const re = new RegExp(`\\\\b${escaped}\\\\b`, \"gi\");\n    result = result.replace(re, match => \"*\".repeat(match.length));\n  }\n  return result;\n};\n\n// 1) Profanity (strong terms only)\nconst profanityList = [\n  \"fuck\",\n  \"fucking\",\n  \"motherfucker\",\n  \"motherfucking\",\n  \"shit\",\n  \"bullshit\",\n  \"dickhead\",\n  \"asshole\",\n  \"cocksucker\",\n  \"bitch\",\n  \"son of a bitch\",\n  \"cunt\",\n  \"dick\",\n  \"nigger\",\n  \"nigga\",\n  \"dick sucker\",\n  \"dicksucker\"\n];\n\n// 2) Sexual content (clearly explicit)\nconst sexualList = [\n  \"pornhub\",\n  \"porn hub\",\n  \"xvideos\",\n  \"onlyfans\",\n  \"only fans\",\n  \"deepthroat\",\n  \"deep throat\",\n  \"handjob\",\n  \"hand job\",\n  \"blow job\",\n  \"blowjob\",\n  \"cumshot\",\n  \"cum shot\",\n  \"gangbang\",\n  \"gang bang\",\n  \"bdsm\",\n  \"sex tape\",\n  \"cum\",\n  \"kink\",\n  \"kinky\",\n  \"fetish\",\n  \"fetishize\"\n];\n\n// 3) Self harm signals\nconst selfHarmList = [\n  \"kill myself\",\n  \"killing myself\",\n  \"end my life\",\n  \"suicidal\",\n  \"commit suicide\",\n  \"want to die\",\n  \"want to end it all\",\n  \"cut myself\",\n  \"self harm\",\n  \"self-harm\",\n  \"suicide\"\n];\n\nconst isProfanity = containsAny(msgLower, profanityList);\nconst isSexual   = containsAny(msgLower, sexualList);\nconst isSelfHarm = containsAny(msgLower, selfHarmList);\n\n// Build a sanitized copy for logging\nconst sanitized = maskWords(rawInput, [...profanityList, ...sexualList]);\n\n// Self harm: override everything\nif (isSelfHarm) {\n  return [{\n    json: {\n      blocked: true,\n      category: 'self-harm',\n      message:\n        \"I'm really sorry you're feeling this way. I'm not able to help in crises. If you are having any thoughts of suicide please call or text 988.\",\n      sanitizedMessage: sanitized\n    }\n  }];\n}\n\n// Explicit sexual or heavy profanity: block or deflect\nif (isSexual || isProfanity) {\n  return [{\n    json: {\n      blocked: true,\n      category: 'content',\n      message:\n        \"I can't continue with that kind of language or content. If you have a question about the business, services, or booking, I'm happy to help.\",\n      sanitizedMessage: sanitized\n    }\n  }];\n}\n\n// Otherwise: not blocked, pass through\nreturn [{\n  json: {\n    blocked: false,\n    // Keep both original and sanitized available for later if you want to use them\n    message: rawInput,\n    sanitizedMessage: sanitized\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        560
+      ],
+      "id": "6bb2150c-0c61-48cb-9f3c-94d1d5af79b9",
+      "name": "Check for innappropriate language"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "13862791-a2ef-410f-a148-41fd70259fd0",
+              "leftValue": "={{ $json.blocked }}",
+              "rightValue": "I'm really sorry you're feeling this way. I'm not able to help in crises. If you are having any thoughts of suicide please call or text 988.",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        560
+      ],
+      "id": "336967f3-519b-40dc-b0d3-50d9b675db7b",
+      "name": "If4"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "answer",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aca757b8-5054-426e-aa8d-ddcd247029e8",
+      "name": "Return to User10",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU",
+          "mode": "list",
+          "cachedResultName": "Chatbot master registry",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 333145882,
+          "mode": "list",
+          "cachedResultName": "Conversations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HmDELRIMyMltw5-zxluaLh568pj6Fu_O4BbroFelnFU/edit#gid=333145882"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toISOString() }}",
+            "clientId": "={{ $node['Validate Input'].json.clientId }}",
+            "rawJson": "={{ JSON.stringify($json) }}",
+            "errorCode": "={{ $json.code }}",
+            "error": "={{ $json.error }}",
+            "userMessage": "={{ $node['Validate Input'].json.message }}",
+            "answer": "={{$json[\"message\"]}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "clientId",
+              "displayName": "clientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rawJson",
+              "displayName": "rawJson",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -128,
+        864
+      ],
+      "id": "c9cf23cc-dc62-49e3-8bea-6cb3f86079bb",
+      "name": "Log Conversation17",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PTy0K0EJiPDf1ihd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javascript",
+        "jsCode": "// Build Prompt node\n// Runs AFTER Google Sheets lookup\n// Uses:\n//  - Config from Sheets (name, style, knowledge, guardrails)\n//  - Original clientId + message from \"Validate Input\"\n\n// 1) Get original data from Validate Input node\nconst validate = $item(0).$node['Validate Input'].json;\n\nconst clientId = (validate.clientId || $json.clientId || '').trim();\nconst message = (validate.message || $json.message || '').trim();\n\n// 2) Get config from Google Sheets row\nconst name = ($json.name || '').trim();\nconst style = ($json.style || 'Clear and helpful.').trim();\nconst knowledge = ($json.knowledge || '').trim();\nconst guardrails = ($json.guardrails || 'If unsure, say you are not sure and direct the user to contact the business.').trim();\n\n// 3) Hard validation\nif (!clientId) {\n  throw new Error('Internal error: missing clientId in Build Prompt.');\n}\n\nif (!message) {\n  throw new Error('Internal error: missing message in Build Prompt.');\n}\n\nif (!name || !knowledge) {\n  // Sheet row exists but missing critical fields\n  return [\n    {\n      json: {\n        error: true,\n        code: 'CLIENT_CONFIG_INCOMPLETE',\n        message: 'This assistant is missing required configuration in Google Sheets. Please contact the site owner.'\n      }\n    }\n  ];\n}\n\n// 4) Build system prompt\nconst systemPrompt = `You are an AI assistant for ${name}.\nTone: ${style}\nBusiness info (source of truth): ${knowledge}\nGuardrails: ${guardrails}\nRules:\n- Answer ONLY questions related to this business and closely relevant topics.\n- Do not make up facts. If info is missing, say you are not certain and suggest contacting the business.\n- Keep responses concise and clear.`;\n\n// 5) Return clean payload for HTTP Request node\nreturn [\n  {\n    json: {\n      clientId,\n      body: {\n        model: 'llama-3.1-8b-instant',\n        messages: [\n          { role: 'system', content: systemPrompt },\n          { role: 'user', content: message }\n        ],\n        max_tokens: 400,\n        temperature: 0.4\n      }\n    }\n  }\n];\n"
+      },
+      "id": "c0f34126-44c8-4433-a210-92c68f9e0257",
+      "name": "Build Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        464
+      ],
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "permasize.app.n8n.cloud",
+            "user-agent": "node-fetch",
+            "content-length": "34",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "74.220.48.240",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "US",
+            "cf-ray": "9a8c809f302f8b90-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "x-client-token": "R6nC9vQ4xP2yH7tF3mK1aL8bJ0sZ5gD9",
+            "x-forwarded-for": "74.220.48.240, 172.68.174.157",
+            "x-forwarded-host": "permasize.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-21-5c9df84b57-5v7v5",
+            "x-is-trusted": "yes",
+            "x-real-ip": "74.220.48.240",
+            "x-session-id": "sess-b089q83lml-1762656567165"
+          },
+          "params": {
+            "clientId": "bella-dent"
+          },
+          "query": {},
+          "body": {
+            "message": "Im gonna kill myself"
+          },
+          "webhookUrl": "https://permasize.app.n8n.cloud/webhook/9259d8e0-8ba1-4e96-a2f5-1b95bd0c2c28/chatbot/:clientId",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Check for innappropriate language": [
+      {
+        "json": {
+          "blocked": true,
+          "category": "self-harm",
+          "message": "I'm really sorry you're feeling this way. I'm not able to help in crises. If you are having any thoughts of suicide please call or text 988.",
+          "sanitizedMessage": "Im gonna kill myself"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Rate Limiter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Return to User",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation16",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Return to User2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Return to User1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Return to User3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Return to User4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation14",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "node": "Return to User5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation15",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Check for innappropriate language",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code6": {
+      "main": [
+        [
+          {
+            "node": "Return to User6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Client Info Error Guard": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call LLM": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation16",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Code7",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Client info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code7": {
+      "main": [
+        [
+          {
+            "node": "Return to User7",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Client info": {
+      "main": [
+        [
+          {
+            "node": "Get Client Info Error Guard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets master registry": {
+      "main": [
+        [
+          {
+            "node": "Select Client From Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Client From Registry": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Client Existence": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Verify Client Existence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code5": {
+      "main": [
+        [
+          {
+            "node": "Log Conversation8",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return to User8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limiter": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Code8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sheets master registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code8": {
+      "main": [
+        [
+          {
+            "node": "Log Conversation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return to User9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for innappropriate language": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If4": {
+      "main": [
+        [
+          {
+            "node": "Return to User10",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Conversation17",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call LLM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1d8cc0da-2dee-4593-b548-862de2885c9b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "06edcad76c1849fbb023c98670eb0ea73c3796e60a9282ecf29fcc679ea1e64d"
+  },
+  "id": "24SKdaq8Ab3fp6vW",
+  "tags": []
+}
